@@ -123,7 +123,7 @@ Request:
 {
   "players": [
     { "name": "Nathan", "buy_in": 10.00, "final_balance": 12.50 },
-    { "name": "Jason",  "buy_in": 20.00, "final_balance": 5.00 },
+    { "name": "Jason",  "buy_in": 20.00, "final_balance": 10.00 },
     { "name": "Emily",  "buy_in": 10.00, "final_balance": 17.50 }
   ]
 }
@@ -132,19 +132,19 @@ Response (success):
 {
   "nets": [
     { "name": "Nathan", "net": 2.50 },
-    { "name": "Jason",  "net": -15.00 },
+    { "name": "Jason",  "net": -10.00 },
     { "name": "Emily",  "net": 7.50 }
   ],
   "transactions": [
-    { "from": "Jason", "to": "Nathan", "amount": 2.50 },
-    { "from": "Jason", "to": "Emily",  "amount": 7.50 }
+    { "from": "Jason", "to": "Emily",  "amount": 7.50 },
+    { "from": "Jason", "to": "Nathan", "amount": 2.50 }
   ],
   "breakdown": {
-    "debtors_sorted": [{ "name": "Jason", "amount": 15.00 }],
+    "debtors_sorted": [{ "name": "Jason", "amount": 10.00 }],
     "creditors_sorted": [{ "name": "Emily", "amount": 7.50 }, { "name": "Nathan", "amount": 2.50 }],
     "match_trace": [
-      "Jason (owes $15.00) pays Emily (owed $7.50) -> $7.50; Jason now owes $7.50",
-      "Jason (owes $7.50) pays Nathan (owed $2.50) -> $2.50; Jason now owes $5.00... continues until zero"
+      "Jason (owes $10.00) pays Emily (owed $7.50) -> $7.50; Jason now owes $2.50, Emily settled",
+      "Jason (owes $2.50) pays Nathan (owed $2.50) -> $2.50; Jason now owes $0.00, Nathan settled"
     ],
     "rounding_adjustment": null
   }

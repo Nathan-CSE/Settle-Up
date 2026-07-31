@@ -7,46 +7,46 @@ Tracks implementation tasks by milestone, per PRD.md §9 and CLAUDE.md's Impleme
 ## M1 — MVP (Priority 1)
 
 ### Backend skeleton
-- [ ] `backend/pyproject.toml` with Flask, Pydantic deps + pytest, pytest-cov dev deps (uv-managed)
-- [ ] Flask app factory (`backend/app/__init__.py` empty per convention; app creation elsewhere)
-- [ ] Directory scaffold: `app/routes/`, `app/services/`, `app/models/`, `tests/` (all `__init__.py` kept empty)
+- [x] `backend/pyproject.toml` with Flask, Pydantic deps + pytest, pytest-cov dev deps (uv-managed)
+- [x] Flask app factory (`backend/app/__init__.py` empty per convention; app creation in `app/main.py` — run via `uv run flask --app app.main:create_app run --debug`)
+- [x] Directory scaffold: `app/routes/`, `app/services/`, `app/models/`, `tests/` (all `__init__.py` kept empty)
 
 ### Domain models (`backend/app/models/game.py`)
-- [ ] `PlayerInput` Pydantic model: name (str), buy_in (Decimal, >= 0), final_balance (Decimal)
-- [ ] `SettlementRequest` model wrapping `players: list[PlayerInput]`
-- [ ] Field validator rejecting duplicate player names
-- [ ] Dollars -> integer cents conversion at this boundary (and nowhere else)
-- [ ] Response schemas: success (nets, transactions, breakdown) and error (reconciliation) shapes matching PRD §5.3
+- [x] `PlayerInput` Pydantic model: name (str), buy_in (Decimal, >= 0), final_balance (Decimal)
+- [x] `SettlementRequest` model wrapping `players: list[PlayerInput]`
+- [x] Field validator rejecting duplicate player names
+- [x] Dollars -> integer cents conversion at this boundary (and nowhere else)
+- [x] Response schemas: success (nets, transactions, breakdown) and error (reconciliation) shapes matching PRD §5.3
 
 ### Settlement algorithm (`backend/app/services/settle.py`)
-- [ ] Write failing tests first (see Testing section below) before implementing
-- [ ] Pure function `compute_settlement(players) -> SettlementResult`, no Flask/IO, cents only
-- [ ] Net calculation per player (final_balance - buy_in)
-- [ ] Reconciliation check: nets sum to zero; if not, return full reconciliation (total buy-ins, total final balances, delta) instead of a bare error
-- [ ] Greedy minimal-transaction match: sort debtors/creditors, match largest-to-largest until zeroed
-- [ ] Step-by-step match trace construction for breakdown
-- [ ] Defensive fractional-cent fallback: auto-assign leftover cent to a randomly chosen player, record which player and why in `breakdown.rounding_adjustment`
-- [ ] Confirm 100% test coverage on this module
+- [x] Write failing tests first (see Testing section below) before implementing
+- [x] Pure function `compute_settlement(players) -> SettlementSuccess | ReconciliationFailure`, no Flask/IO, cents only
+- [x] Net calculation per player (final_balance - buy_in)
+- [x] Reconciliation check: nets sum to zero; if not, return full reconciliation (total buy-ins, total final balances, delta) instead of a bare error
+- [x] Greedy minimal-transaction match: sort debtors/creditors, match largest-to-largest until zeroed
+- [x] Step-by-step match trace construction for breakdown
+- [x] Defensive fractional-cent fallback: auto-assign leftover cent to a randomly chosen player, record which player and why in `breakdown.rounding_adjustment`
+- [x] Confirm 100% test coverage on this module
 
 ### Route wiring (`backend/app/routes/settlement.py`)
-- [ ] `POST /api/settlement`: validate via Pydantic -> `compute_settlement` -> `jsonify` response
-- [ ] Correct HTTP status codes (200 success / 422 validation-type errors)
-- [ ] Malformed/non-numeric input returns actionable 4xx error, not a stack trace
+- [x] `POST /api/settlement`: validate via Pydantic -> `compute_settlement` -> `jsonify` response
+- [x] Correct HTTP status codes (200 success / 422 validation-type errors)
+- [x] Malformed/non-numeric input returns actionable 4xx error, not a stack trace
 
 ### Backend testing (`backend/tests/test_settle.py` + route tests)
-- [ ] Failing tests written before implementation (TDD)
-- [ ] Worked 3-player example (PRD §5.3) as fixed regression fixture
-- [ ] Worked 4-player example as fixed regression fixture
-- [ ] Single debtor / single creditor case
-- [ ] Already-settled (all-zero net) input
-- [ ] Mismatched nets (error path) — assert exact reconciliation math (total buy-ins, total final balances, delta)
-- [ ] Duplicate player names rejected
-- [ ] Negative buy-in rejected
-- [ ] Malformed/non-numeric input rejected with actionable message
-- [ ] Defensive rounding fallback forced deliberately — confirm auto-assignment + reporting, not silent
-- [ ] Every success and error response asserted to include full breakdown/reconciliation fields
-- [ ] Integration tests: Flask route + Pydantic validation + HTTP status/error shape
-- [ ] `uv run pytest --cov=app --cov-report=term-missing` shows 100% coverage on `settle.py`
+- [x] Failing tests written before implementation (TDD)
+- [x] Worked 3-player example (PRD §5.3) as fixed regression fixture
+- [x] Worked 4-player example as fixed regression fixture
+- [x] Single debtor / single creditor case
+- [x] Already-settled (all-zero net) input
+- [x] Mismatched nets (error path) — assert exact reconciliation math (total buy-ins, total final balances, delta)
+- [x] Duplicate player names rejected
+- [x] Negative buy-in rejected
+- [x] Malformed/non-numeric input rejected with actionable message
+- [x] Defensive rounding fallback forced deliberately — confirm auto-assignment + reporting, not silent
+- [x] Every success and error response asserted to include full breakdown/reconciliation fields
+- [x] Integration tests: Flask route + Pydantic validation + HTTP status/error shape
+- [x] `uv run pytest --cov=app --cov-report=term-missing` shows 100% coverage on `settle.py`
 
 ### Mobile app
 - [ ] Expo project scaffold under `mobile/` (`package.json`, Expo config)

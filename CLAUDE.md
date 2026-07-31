@@ -43,6 +43,7 @@ poker-calculator/
 ├── backend/                    # Flask API
 │   ├── app/
 │   │   ├── __init__.py         # Keep empty
+│   │   ├── main.py             # Flask app factory (create_app) + smoke-tested main()
 │   │   ├── routes/
 │   │   │   ├── __init__.py     # Keep empty
 │   │   │   └── settlement.py   # POST /api/settlement
@@ -287,7 +288,7 @@ uv run pytest
 uv run pytest --cov=app --cov-report=term-missing
 
 # Run Flask dev server
-uv run flask --app app run --debug
+uv run flask --app app.main:create_app run --debug
 
 # Mobile setup (Expo)
 cd mobile

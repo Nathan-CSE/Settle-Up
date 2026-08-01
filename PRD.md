@@ -48,6 +48,10 @@ Nathan and his regular game group. This is a casual utility for a single game se
 - **FR-011:** Settlement calculation runs server-side via the Flask API (not purely client-side), so the mobile app calls the backend for both validation and the settlement result
 - **FR-012:** Every computed settlement response — success or error — includes a full breakdown: per-player net calculation, the sorted debtor/creditor lists, and a step-by-step trace of how transactions were matched. The transaction list is never returned as a bare result with no supporting work shown. In the UI, this breakdown is not shown by default — the primary view is just the transaction list (and the reconciliation summary on error). The breakdown is available on demand via an expand/dropdown ("show calculation"), so the detail is always there but never forced on the user
 - **FR-013:** Because all inputs are exact-cent numbers (FR-002) and nets are validated to sum to zero (FR-008), the settlement algorithm should never produce a fractional-cent remainder in normal operation — this is a defensive fallback, not an expected case. If a leftover cent ever does occur (e.g. an unanticipated input shape or implementation bug), auto-assign it to a randomly chosen player and record exactly which player and why in the breakdown (FR-012), so the fallback is visible rather than silently "fixed"
+- **FR-020:** When nets don't reconcile (FR-008), the reconciliation response includes a `resolvable` flag indicating whether the discrepancy could be auto-resolved, computed eagerly so the client can decide whether to offer that option without an extra round trip
+- **FR-021:** The client may opt in to auto-resolving a discrepancy by resending the request with `resolve_discrepancy: true`. The delta is split evenly across every player's final balance (positive delta: clawed back from payouts; negative delta: given as a small bonus), keeping the "casual game night" math simple — never proportional to buy-in size, which the target ~$10 buy-in group doesn't need (see §10.1 Discrepancy resolution strategy)
+- **FR-022:** A player whose adjusted final balance would go negative is excluded from the split and their share is redistributed across the remaining players; if no split leaves every player non-negative, the discrepancy is unresolvable and the standard reconciliation error (FR-008) is returned instead — resolution never forces a nonsensical negative payout
+- **FR-023:** A resolved settlement records the resolution in `breakdown.discrepancy_resolution` (delta, per-player adjustment, any excluded players) — same transparency principle as FR-012/FR-013; auto-resolution is never silent
 
 ### 3.3 History & Persistence (MVP)
 - **FR-014:** Save the most recently entered game(s) in local device storage (e.g. AsyncStorage) so state survives the app closing or the phone restarting
@@ -125,7 +129,8 @@ Request:
     { "name": "Nathan", "buy_in": 10.00, "final_balance": 12.50 },
     { "name": "Jason",  "buy_in": 20.00, "final_balance": 10.00 },
     { "name": "Emily",  "buy_in": 10.00, "final_balance": 17.50 }
-  ]
+  ],
+  "resolve_discrepancy": false
 }
 
 Response (success):
@@ -146,7 +151,8 @@ Response (success):
       "Jason (owes $10.00) pays Emily (owed $7.50) -> $7.50; Jason now owes $2.50, Emily settled",
       "Jason (owes $2.50) pays Nathan (owed $2.50) -> $2.50; Jason now owes $0.00, Nathan settled"
     ],
-    "rounding_adjustment": null
+    "rounding_adjustment": null,
+    "discrepancy_resolution": null
   }
 }
 
@@ -156,10 +162,35 @@ Response (validation error — nets don't reconcile):
   "total_buy_ins": 40.00,
   "total_final_balances": 40.01,
   "delta": 0.01,
-  "message": "Final balances exceed buy-ins by $0.01 — check entries for a data entry mistake."
+  "message": "Final balances exceed buy-ins by $0.01 — check entries for a data entry mistake.",
+  "resolvable": true
+}
+
+Response (nets don't reconcile, resolved — request sent `resolve_discrepancy: true`):
+{
+  "nets": [ ... ],
+  "transactions": [ ... ],
+  "breakdown": {
+    "debtors_sorted": [ ... ],
+    "creditors_sorted": [ ... ],
+    "match_trace": [ ... ],
+    "rounding_adjustment": null,
+    "discrepancy_resolution": {
+      "strategy": "even",
+      "delta": 0.01,
+      "adjustments": [
+        { "name": "Nathan", "adjustment": 0.00 },
+        { "name": "Jason",  "adjustment": -0.01 },
+        { "name": "Emily",  "adjustment": 0.00 }
+      ],
+      "excluded_players": []
+    }
+  }
 }
 ```
 `rounding_adjustment` is populated only in the defensive fallback case (FR-013) and states which player absorbed the leftover cent and why, so that path is never silent.
+
+`resolvable` (FR-020) is always computed on a reconciliation failure, whether or not `resolve_discrepancy` was set — it tells the client whether offering "split the difference" is worth showing at all. `discrepancy_resolution` (FR-021–023) only appears when the client opted in and the delta was successfully resolved: `adjustments` lists every player's signed dollar adjustment (0.00 for anyone unaffected or excluded), and `excluded_players` lists anyone whose share was redistributed because taking it would have pushed their final balance negative.
 
 **Design note:** calculation lives server-side by deliberate choice — it would work equally well fully client-side for MVP, but running it through the Flask API from day one is preferred for flexibility and as a learning exercise, even though it adds a network hop the UI needs to hide.
 
@@ -229,6 +260,8 @@ Response (validation error — nets don't reconcile):
 - **Duplicate names:** rejected at input — names must be unique within a game
 - **Negative buy-ins:** rejected at input
 - **Transparency:** every computed settlement (success or error) includes a full breakdown of the calculation, not just the final answer (FR-012)
+- **Discrepancy resolution strategy:** even split across all players, not proportional to buy-in size. Considered proportional (weighted by buy-in) for groups with wide buy-in variance (rebuys pushing one player's stake well above another's), since it scales the burden with stake and reduces how often the floor guard excludes a low-stake player — but for the target group's fairly uniform ~$10 buy-ins the difference is pennies, and proportional forces answering "weighted by buy-in or by cash-out?" for no real benefit here. Implemented as a swappable strategy (`DiscrepancyStrategy` enum in `settle.py`) so proportional can be added later without changing the request/response contract (FR-021)
+- **Discrepancy resolution opt-in:** never automatic — the standard reconciliation error (FR-008) is always the default response; a client must explicitly resend with `resolve_discrepancy: true` to get a resolved settlement. This preserves the reconciliation check's core purpose (surfacing likely data-entry mistakes) while still offering a one-tap fix for small, genuine discrepancies (FR-020/021)
 
 ### 10.2 Still Open
 - Exact React Native tooling choice (Expo vs. bare workflow)

@@ -47,6 +47,7 @@ class PlayerInput(BaseModel):
 
 class SettlementRequest(BaseModel):
     players: list[PlayerInput] = Field(min_length=2)
+    resolve_discrepancy: bool = False
 
     @field_validator("players")
     @classmethod
@@ -93,11 +94,24 @@ class RoundingAdjustmentOut(BaseModel):
     reason: str
 
 
+class DiscrepancyAdjustmentOut(BaseModel):
+    name: str
+    adjustment: float
+
+
+class DiscrepancyResolutionOut(BaseModel):
+    strategy: str
+    delta: float
+    adjustments: list[DiscrepancyAdjustmentOut]
+    excluded_players: list[str]
+
+
 class BreakdownOut(BaseModel):
     debtors_sorted: list[DebtorCreditorOut]
     creditors_sorted: list[DebtorCreditorOut]
     match_trace: list[str]
     rounding_adjustment: RoundingAdjustmentOut | None
+    discrepancy_resolution: DiscrepancyResolutionOut | None
 
 
 class SettlementSuccessOut(BaseModel):
@@ -112,10 +126,12 @@ class ReconciliationFailureOut(BaseModel):
     total_final_balances: float
     delta: float
     message: str
+    resolvable: bool
 
 
 def _breakdown_to_response(breakdown: Breakdown) -> BreakdownOut:
     rounding_adjustment = breakdown.rounding_adjustment
+    discrepancy_resolution = breakdown.discrepancy_resolution
     return BreakdownOut(
         debtors_sorted=[
             DebtorCreditorOut(name=d.name, amount=_cents_to_dollars(d.amount))
@@ -133,6 +149,21 @@ def _breakdown_to_response(breakdown: Breakdown) -> BreakdownOut:
                 reason=rounding_adjustment.reason,
             )
             if rounding_adjustment is not None
+            else None
+        ),
+        discrepancy_resolution=(
+            DiscrepancyResolutionOut(
+                strategy=discrepancy_resolution.strategy,
+                delta=_cents_to_dollars(discrepancy_resolution.delta),
+                adjustments=[
+                    DiscrepancyAdjustmentOut(
+                        name=a.name, adjustment=_cents_to_dollars(a.adjustment_cents)
+                    )
+                    for a in discrepancy_resolution.adjustments
+                ],
+                excluded_players=discrepancy_resolution.excluded_players,
+            )
+            if discrepancy_resolution is not None
             else None
         ),
     )
@@ -159,4 +190,5 @@ def reconciliation_failure_to_response(
         total_final_balances=_cents_to_dollars(result.total_final_balances),
         delta=_cents_to_dollars(result.delta),
         message=result.message,
+        resolvable=result.resolvable,
     )

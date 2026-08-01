@@ -89,6 +89,7 @@ def test_mismatched_nets_returns_reconciliation_error(client):
         "message": (
             "Final balances exceed buy-ins by $0.01 — check entries for a data entry mistake."
         ),
+        "resolvable": True,
     }
 
 
@@ -180,3 +181,43 @@ def test_missing_players_field_rejected(client):
 
     assert response.status_code == 400
     assert response.get_json()["error"] == "invalid_input"
+
+
+def test_resolve_discrepancy_returns_settled_response_with_adjustment(client):
+    payload = {
+        "players": [
+            {"name": "Nathan", "buy_in": 10.00, "final_balance": 12.50},
+            {"name": "Jason", "buy_in": 20.00, "final_balance": 10.01},
+            {"name": "Emily", "buy_in": 10.00, "final_balance": 17.50},
+        ],
+        "resolve_discrepancy": True,
+    }
+
+    response = post_settlement(client, payload)
+    body = response.get_json()
+
+    assert response.status_code == 200
+    assert sum(n["net"] for n in body["nets"]) == 0
+    resolution = body["breakdown"]["discrepancy_resolution"]
+    assert resolution is not None
+    assert resolution["strategy"] == "even"
+    assert resolution["delta"] == 0.01
+    assert resolution["excluded_players"] == []
+    assert round(sum(a["adjustment"] for a in resolution["adjustments"]), 2) == -0.01
+
+
+def test_resolve_discrepancy_defaults_to_false(client):
+    payload = {
+        "players": [
+            {"name": "Nathan", "buy_in": 10.00, "final_balance": 12.50},
+            {"name": "Jason", "buy_in": 20.00, "final_balance": 10.01},
+            {"name": "Emily", "buy_in": 10.00, "final_balance": 17.50},
+        ]
+    }
+
+    response = post_settlement(client, payload)
+    body = response.get_json()
+
+    assert response.status_code == 422
+    assert body["error"] == "nets_do_not_reconcile"
+    assert body["resolvable"] is True

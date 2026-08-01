@@ -3,11 +3,13 @@ import pytest
 from app.services.settle import (
     Breakdown,
     DebtorCreditorEntry,
+    DiscrepancyStrategy,
     NetEntry,
     Player,
     ReconciliationFailure,
     SettlementSuccess,
     Transaction,
+    _distribute_discrepancy,
     _match_debts,
     compute_settlement,
 )
@@ -217,3 +219,148 @@ def test_breakdown_fields_present_on_reconciliation_failure():
     assert result.total_final_balances is not None
     assert result.delta is not None
     assert result.message
+
+
+# --- Discrepancy resolution (opt-in) ---------------------------------------
+
+
+def test_reconciliation_failure_reports_resolvable_true_without_opting_in():
+    # resolvable is computed eagerly even when resolve_discrepancy isn't set,
+    # so the client can decide whether to offer the fix at all.
+    players = [
+        Player(name="A", buy_in=1000, final_balance=1000),
+        Player(name="B", buy_in=2000, final_balance=1000),
+        Player(name="C", buy_in=1000, final_balance=2001),
+    ]
+
+    result = compute_settlement(players)
+
+    assert isinstance(result, ReconciliationFailure)
+    assert result.resolvable is True
+
+
+def test_reconciliation_failure_reports_resolvable_false_when_unresolvable():
+    # Forced via a negative buy-in (rejected by Pydantic at the API boundary,
+    # but usable here to exercise the pure function's defensive branch) so
+    # there's zero headroom in final balances to claw back from.
+    players = [
+        Player(name="A", buy_in=-1000, final_balance=0),
+        Player(name="B", buy_in=0, final_balance=0),
+    ]
+
+    result = compute_settlement(players)
+
+    assert isinstance(result, ReconciliationFailure)
+    assert result.resolvable is False
+
+
+def test_reconciliation_failure_unchanged_when_resolve_discrepancy_not_requested():
+    players = [
+        Player(name="A", buy_in=1000, final_balance=1000),
+        Player(name="B", buy_in=2000, final_balance=1000),
+        Player(name="C", buy_in=1000, final_balance=2001),
+    ]
+
+    result = compute_settlement(players, resolve_discrepancy=False)
+
+    assert isinstance(result, ReconciliationFailure)
+    assert result.delta == 1
+
+
+def test_resolve_discrepancy_even_split_produces_success_with_zero_summing_nets():
+    players = [
+        Player(name="Nathan", buy_in=1000, final_balance=1250),
+        Player(name="Jason", buy_in=2000, final_balance=1000),
+        Player(name="Emily", buy_in=1000, final_balance=1751),
+    ]
+
+    result = compute_settlement(players, resolve_discrepancy=True)
+
+    assert isinstance(result, SettlementSuccess)
+    assert sum(n.net for n in result.nets) == 0
+
+
+def test_resolve_discrepancy_records_discrepancy_resolution_in_breakdown():
+    players = [
+        Player(name="Nathan", buy_in=1000, final_balance=1250),
+        Player(name="Jason", buy_in=2000, final_balance=1000),
+        Player(name="Emily", buy_in=1000, final_balance=1751),
+    ]
+
+    result = compute_settlement(players, resolve_discrepancy=True)
+
+    assert isinstance(result, SettlementSuccess)
+    resolution = result.breakdown.discrepancy_resolution
+    assert resolution is not None
+    assert resolution.strategy == DiscrepancyStrategy.EVEN.value
+    assert resolution.delta == 1
+    assert sum(a.adjustment_cents for a in resolution.adjustments) == -1
+    assert resolution.excluded_players == []
+    assert result.breakdown.rounding_adjustment is None
+
+
+def test_resolve_discrepancy_excludes_player_who_would_go_negative():
+    # An even 2-cent split would take 1c from each, but B has nothing to
+    # give back — the whole clawback must fall to A.
+    players = [
+        Player(name="A", buy_in=1000, final_balance=2002),
+        Player(name="B", buy_in=1000, final_balance=0),
+    ]
+
+    result = compute_settlement(players, resolve_discrepancy=True)
+
+    assert isinstance(result, SettlementSuccess)
+    resolution = result.breakdown.discrepancy_resolution
+    assert resolution is not None
+    assert resolution.excluded_players == ["B"]
+    adjustments = {a.name: a.adjustment_cents for a in resolution.adjustments}
+    assert adjustments["B"] == 0
+    assert adjustments["A"] == -2
+
+
+def test_resolve_discrepancy_falls_back_to_reconciliation_failure_when_unresolvable():
+    players = [
+        Player(name="A", buy_in=-1000, final_balance=0),
+        Player(name="B", buy_in=0, final_balance=0),
+    ]
+
+    result = compute_settlement(players, resolve_discrepancy=True)
+
+    assert isinstance(result, ReconciliationFailure)
+    assert result.resolvable is False
+
+
+def test_distribute_discrepancy_returns_none_when_unresolvable():
+    players = [
+        Player(name="A", buy_in=-1000, final_balance=0),
+        Player(name="B", buy_in=0, final_balance=0),
+    ]
+    delta = sum(p.final_balance for p in players) - sum(p.buy_in for p in players)
+
+    resolution = _distribute_discrepancy(players, delta, DiscrepancyStrategy.EVEN)
+
+    assert resolution is None
+
+
+def test_distribute_discrepancy_rejects_unsupported_strategy():
+    players = [
+        Player(name="A", buy_in=1000, final_balance=1000),
+        Player(name="B", buy_in=1000, final_balance=1001),
+    ]
+
+    with pytest.raises(NotImplementedError):
+        _distribute_discrepancy(players, delta=1, strategy="proportional")
+
+
+def test_distribute_discrepancy_gives_extra_when_final_balances_fall_short():
+    players = [
+        Player(name="A", buy_in=1000, final_balance=900),
+        Player(name="B", buy_in=1000, final_balance=1000),
+    ]
+    delta = sum(p.final_balance for p in players) - sum(p.buy_in for p in players)
+
+    resolution = _distribute_discrepancy(players, delta, DiscrepancyStrategy.EVEN)
+
+    assert resolution is not None
+    assert sum(a.adjustment_cents for a in resolution.adjustments) == 100
+    assert resolution.excluded_players == []

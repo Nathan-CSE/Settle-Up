@@ -27,6 +27,7 @@ Tracks implementation tasks by milestone, per PRD.md §9 and CLAUDE.md's Impleme
 - [x] Step-by-step match trace construction for breakdown
 - [x] Defensive fractional-cent fallback: auto-assign leftover cent to a randomly chosen player, record which player and why in `breakdown.rounding_adjustment`
 - [x] Confirm 100% test coverage on this module
+- [x] Opt-in discrepancy resolution (FR-020–023): `resolve_discrepancy` request flag, `resolvable` computed eagerly on reconciliation failure, even-split via swappable `DiscrepancyStrategy`, floor guard + exclusion/redistribution, recorded in `breakdown.discrepancy_resolution`
 
 ### Route wiring (`backend/app/routes/settlement.py`)
 - [x] `POST /api/settlement`: validate via Pydantic -> `compute_settlement` -> `jsonify` response
@@ -47,6 +48,7 @@ Tracks implementation tasks by milestone, per PRD.md §9 and CLAUDE.md's Impleme
 - [x] Every success and error response asserted to include full breakdown/reconciliation fields
 - [x] Integration tests: Flask route + Pydantic validation + HTTP status/error shape
 - [x] `uv run pytest --cov=app --cov-report=term-missing` shows 100% coverage on `settle.py`
+- [x] Discrepancy resolution: resolvable flag (true/false), even-split success + breakdown fields, floor-guard exclusion, unresolvable fallback, unsupported-strategy defensive branch — all covered
 
 ### Mobile app
 - [ ] Expo project scaffold under `mobile/` (`package.json`, Expo config)
@@ -101,6 +103,7 @@ Tracks implementation tasks by milestone, per PRD.md §9 and CLAUDE.md's Impleme
 
 - [ ] Settlement summary export/share sheet (FR-017, explicitly deferred)
 - [ ] Revisit rebuy handling if adjusting initial buy-in proves limiting in practice (see PRD §10.1)
+- [ ] Proportional discrepancy-split strategy (weighted by buy-in), if the group's buy-in variance ever grows enough to justify it over even-split (see PRD §10.1 "Discrepancy resolution strategy"); `DiscrepancyStrategy` in `settle.py` is already built to accept it
 
 ---
 

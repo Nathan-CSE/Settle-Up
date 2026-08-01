@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -45,12 +46,35 @@ class RoundingAdjustment:
     reason: str
 
 
+class DiscrepancyStrategy(str, Enum):
+    """How a reconciliation delta is split across players when the client
+    opts in to auto-resolution. Only EVEN exists today; kept as an enum so
+    a PROPORTIONAL strategy can be added later without changing callers."""
+
+    EVEN = "even"
+
+
+@dataclass(frozen=True)
+class DiscrepancyAdjustment:
+    name: str
+    adjustment_cents: int  # signed: negative = clawed back, positive = extra given
+
+
+@dataclass(frozen=True)
+class DiscrepancyResolution:
+    strategy: str
+    delta: int
+    adjustments: list[DiscrepancyAdjustment]
+    excluded_players: list[str]
+
+
 @dataclass(frozen=True)
 class Breakdown:
     debtors_sorted: list[DebtorCreditorEntry]
     creditors_sorted: list[DebtorCreditorEntry]
     match_trace: list[str]
     rounding_adjustment: RoundingAdjustment | None
+    discrepancy_resolution: DiscrepancyResolution | None = None
 
 
 @dataclass(frozen=True)
@@ -66,6 +90,7 @@ class ReconciliationFailure:
     total_final_balances: int
     delta: int
     message: str
+    resolvable: bool
 
 
 def _format_dollars(cents: int) -> str:
@@ -145,27 +170,103 @@ def _match_debts(
     return transactions, trace, rounding_adjustment
 
 
-def compute_settlement(players: list[Player]) -> SettlementSuccess | ReconciliationFailure:
+def _even_shares(total_cents: int, names: list[str]) -> dict[str, int]:
+    """Split total_cents as evenly as possible across names, same sign as
+    total_cents. Names are sorted so any leftover single cents land on the
+    same players deterministically (alphabetically first)."""
+    sign = 1 if total_cents >= 0 else -1
+    magnitude = abs(total_cents)
+    base, remainder = divmod(magnitude, len(names))
+    return {
+        name: sign * (base + 1 if i < remainder else base)
+        for i, name in enumerate(sorted(names))
+    }
+
+
+def _distribute_discrepancy(
+    players: list[Player], delta: int, strategy: DiscrepancyStrategy
+) -> DiscrepancyResolution | None:
+    """Split -delta across players' final balances so nets sum to zero.
+
+    A player whose adjusted final balance would go negative is excluded and
+    their share redistributed across the rest, looping until stable. Returns
+    None if no split leaves every player non-negative — the delta can't be
+    auto-resolved and the caller should fall back to the hard error.
+    """
+    if strategy is not DiscrepancyStrategy.EVEN:
+        raise NotImplementedError(f"Unsupported discrepancy strategy: {strategy}")
+
+    total_adjustment = -delta
+    remaining = list(players)
+    excluded: list[str] = []
+
+    while remaining:
+        shares = _even_shares(total_adjustment, [p.name for p in remaining])
+        violators = [p for p in remaining if p.final_balance + shares[p.name] < 0]
+        if not violators:
+            adjustments = [
+                DiscrepancyAdjustment(name=p.name, adjustment_cents=shares.get(p.name, 0))
+                for p in players
+            ]
+            return DiscrepancyResolution(
+                strategy=strategy.value,
+                delta=delta,
+                adjustments=adjustments,
+                excluded_players=excluded,
+            )
+        excluded.extend(v.name for v in violators)
+        violator_names = {v.name for v in violators}
+        remaining = [p for p in remaining if p.name not in violator_names]
+
+    return None
+
+
+def _apply_discrepancy_resolution(
+    players: list[Player], resolution: DiscrepancyResolution
+) -> list[Player]:
+    adjustment_by_name = {a.name: a.adjustment_cents for a in resolution.adjustments}
+    return [
+        Player(
+            name=p.name,
+            buy_in=p.buy_in,
+            final_balance=p.final_balance + adjustment_by_name[p.name],
+        )
+        for p in players
+    ]
+
+
+def compute_settlement(
+    players: list[Player],
+    resolve_discrepancy: bool = False,
+    strategy: DiscrepancyStrategy = DiscrepancyStrategy.EVEN,
+) -> SettlementSuccess | ReconciliationFailure:
     """Net calc -> reconciliation check -> greedy minimal-transaction match.
 
-    Never runs the match against nets that don't sum to zero; returns the
-    full reconciliation instead of a bare error in that case.
+    Never runs the match against nets that don't sum to zero unless the
+    caller opts in to auto-resolution (resolve_discrepancy=True) and a valid
+    split exists; otherwise returns the full reconciliation instead of a
+    bare error.
     """
     total_buy_ins = sum(p.buy_in for p in players)
     total_final_balances = sum(p.final_balance for p in players)
     delta = total_final_balances - total_buy_ins
 
+    resolution = None
     if delta != 0:
-        direction = "exceed" if delta > 0 else "fall short of"
-        return ReconciliationFailure(
-            total_buy_ins=total_buy_ins,
-            total_final_balances=total_final_balances,
-            delta=delta,
-            message=(
-                f"Final balances {direction} buy-ins by {_format_dollars(abs(delta))} "
-                "— check entries for a data entry mistake."
-            ),
-        )
+        resolution = _distribute_discrepancy(players, delta, strategy)
+        if not (resolve_discrepancy and resolution is not None):
+            direction = "exceed" if delta > 0 else "fall short of"
+            return ReconciliationFailure(
+                total_buy_ins=total_buy_ins,
+                total_final_balances=total_final_balances,
+                delta=delta,
+                message=(
+                    f"Final balances {direction} buy-ins by {_format_dollars(abs(delta))} "
+                    "— check entries for a data entry mistake."
+                ),
+                resolvable=resolution is not None,
+            )
+        players = _apply_discrepancy_resolution(players, resolution)
 
     nets = [NetEntry(name=p.name, net=p.net) for p in players]
     transactions, trace, rounding_adjustment = _match_debts(nets)
@@ -182,5 +283,6 @@ def compute_settlement(players: list[Player]) -> SettlementSuccess | Reconciliat
         creditors_sorted=creditors_sorted,
         match_trace=trace,
         rounding_adjustment=rounding_adjustment,
+        discrepancy_resolution=resolution,
     )
     return SettlementSuccess(nets=nets, transactions=transactions, breakdown=breakdown)

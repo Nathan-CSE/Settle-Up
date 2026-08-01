@@ -38,7 +38,10 @@ def settlement():
             400,
         )
 
-    result = compute_settlement(settlement_request.to_domain_players())
+    result = compute_settlement(
+        settlement_request.to_domain_players(),
+        resolve_discrepancy=settlement_request.resolve_discrepancy,
+    )
 
     if isinstance(result, ReconciliationFailure):
         response = reconciliation_failure_to_response(result)

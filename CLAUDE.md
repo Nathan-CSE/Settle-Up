@@ -96,24 +96,29 @@ Backend (`backend/pyproject.toml`, managed with uv):
 ```toml
 [dependencies]
 flask = ">=3.0.0"
+flask-cors = ">=6.0.0"
 pydantic = ">=2.0.0"
 
 [dev-dependencies]
 pytest = ">=7.0.0"
 pytest-cov = ">=4.0.0"
 ```
+`flask-cors` was added when mobile M1 work started, purely to let Expo web (used for local browser testing in dev/sandboxed environments without a simulator) call `localhost` across ports. It has no bearing on native mobile usage, where CORS doesn't apply.
 
 Mobile (`mobile/package.json`, Expo):
 ```json
 {
   "dependencies": {
-    "expo": "~51.0.0",
-    "react": "18.x",
-    "react-native": "0.74.x",
-    "@react-native-async-storage/async-storage": "^1.23.0"
+    "expo": "~57.0.9",
+    "expo-constants": "~18.x",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.x",
+    "react-native": "0.86.x",
+    "@react-native-async-storage/async-storage": "^2.2.0"
   }
 }
 ```
+Versions above are current as of M1 mobile scaffolding (Aug 2026) — the `~51.0.0`/React 18/RN 0.74 pins once documented here predate scaffolding and are obsolete; `npx create-expo-app` pulls whatever's current on npm, and forcing an old pinned SDK isn't worth it for a solo project. Keep this section in sync whenever deps are bumped.
 
 ## Core API Design
 

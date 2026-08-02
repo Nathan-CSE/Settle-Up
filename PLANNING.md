@@ -52,10 +52,13 @@ Settle-Up/
 │   └── pyproject.toml
 └── mobile/                     # React Native (Expo)
     ├── src/
-    │   ├── screens/
-    │   ├── components/
-    │   ├── storage/            # AsyncStorage — recent games
-    │   └── api/                # client for backend endpoints
+    │   ├── screens/             # PlayersScreen, ResultsScreen
+    │   ├── components/          # PlayerRow, PrimaryButton, BreakdownSection
+    │   ├── domain/               # money/validation helpers, no Flask/IO
+    │   ├── storage/             # AsyncStorage — draft-recovery of in-progress game
+    │   ├── api/                 # settlement.js + config.js (LAN host resolution)
+    │   └── theme.js              # light/dark palettes, useColorScheme-driven
+    ├── App.js                   # top-level view state machine (players <-> results)
     └── package.json
 ```
 
@@ -94,6 +97,7 @@ These are load-bearing and should not be "cleaned up" away:
 | Package/env manager | uv | `uv sync`, `uv run ...` |
 | Web framework | Flask ≥ 3.0.0 | thin route layer only |
 | Validation/schemas | Pydantic ≥ 2.0.0 | request/response models, `$` ↔ cents boundary |
+| CORS | flask-cors ≥ 6.0.0 | dev-only concern: lets Expo web reach `localhost` across ports; irrelevant to native mobile |
 | Testing | pytest ≥ 7.0.0, pytest-cov ≥ 4.0.0 | function-based tests + fixtures, not classes |
 | Numeric handling | `Decimal` at the API boundary, `int` (cents) internally | never `float` for money |
 
@@ -101,11 +105,11 @@ These are load-bearing and should not be "cleaned up" away:
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Framework | React Native via Expo | `~51.0.0`; bare workflow explicitly not chosen for MVP |
+| Framework | React Native via Expo | `~57.0.9` (current at scaffold time, Aug 2026); bare workflow explicitly not chosen for MVP |
 | Language runtime | Node 18+ | |
-| Core deps | `react` 18.x, `react-native` 0.74.x | |
-| Local persistence | `@react-native-async-storage/async-storage` ^1.23.0 | recent-game save/restore only, no cloud sync |
-| Networking | fetch/axios-style client in `src/api/` calling `/api/settlement` | client owns no settlement logic |
+| Core deps | `react` 19.x, `react-native` 0.86.x | |
+| Local persistence | `@react-native-async-storage/async-storage` ^2.2.0 | recent-game save/restore only, no cloud sync |
+| Networking | fetch-based client in `src/api/` calling `/api/settlement` | client owns no settlement logic; `src/api/config.js` derives the LAN host via `expo-constants` for physical-device testing |
 
 ### 3.3 Future (not built yet — do not scaffold early)
 

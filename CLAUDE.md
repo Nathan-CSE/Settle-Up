@@ -43,6 +43,7 @@ poker-calculator/
 ├── backend/                    # Flask API
 │   ├── app/
 │   │   ├── __init__.py         # Keep empty
+│   │   ├── main.py             # Flask app factory (create_app) + smoke-tested main()
 │   │   ├── routes/
 │   │   │   ├── __init__.py     # Keep empty
 │   │   │   └── settlement.py   # POST /api/settlement
@@ -71,6 +72,7 @@ poker-calculator/
 
 - **Net** = final balance − buy-in, per player.
 - Nets must sum to zero before a settlement is computed. If they don't, return the full reconciliation (total buy-ins, total final balances, exact delta) — never a bare pass/fail.
+- **Discrepancy resolution (opt-in only):** the reconciliation failure always includes a `resolvable: bool`, computed eagerly, so the client can decide whether to offer a fix without a second round trip. Resolution itself only runs if the client resends the request with `resolve_discrepancy: true` — never automatic, since the reconciliation error's job is to surface likely data-entry mistakes, not paper over them. When opted in, the delta is split **evenly** across every player's final balance (not proportional to buy-in — see PRD §10.1 for why), implemented as a swappable `DiscrepancyStrategy` (`settle.py`) so a proportional strategy can be added later without an API shape change. A player whose adjusted final balance would go negative is excluded and their share redistributed across the rest; if no split avoids a negative balance, resolution fails and the standard reconciliation error is returned instead. A successful resolution is recorded in `breakdown.discrepancy_resolution` (never silent, same principle as the rounding fallback below).
 - Settlement is a **minimal-transaction** match: split into debtors (negative net) and creditors (positive net), greedily match largest debtor to largest creditor until zeroed out. Optimize for fewest transactions, not fewest dollars moved.
 - Work in **integer cents** internally — never float — to avoid rounding drift. Only convert to dollars for display.
 - Every computed response, success or error, includes a full breakdown: per-player net calculation, sorted debtor/creditor lists, and a step-by-step match trace. The transaction list is never returned without its supporting work. In the UI this breakdown is collapsed by default, expandable on demand ("show calculation").
@@ -287,7 +289,7 @@ uv run pytest
 uv run pytest --cov=app --cov-report=term-missing
 
 # Run Flask dev server
-uv run flask --app app run --debug
+uv run flask --app app.main:create_app run --debug
 
 # Mobile setup (Expo)
 cd mobile

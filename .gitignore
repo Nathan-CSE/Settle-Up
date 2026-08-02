@@ -1,1 +1,11 @@
 .claude/worktrees/
+.claude/settings.json
+.claude/settings.local.json
+
+# Python / backend
+backend/.venv/
+backend/.pytest_cache/
+backend/**/__pycache__/
+backend/.coverage
+backend/htmlcov/
+*.pyc

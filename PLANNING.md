@@ -36,6 +36,7 @@ Settle-Up/
 ├── backend/                    # Flask API
 │   ├── app/
 │   │   ├── __init__.py         # empty
+│   │   ├── main.py             # Flask app factory (create_app) + smoke-tested main()
 │   │   ├── routes/
 │   │   │   ├── __init__.py     # empty
 │   │   │   └── settlement.py   # POST /api/settlement — thin glue only
@@ -179,7 +180,7 @@ cd backend
 uv sync                                          # install deps
 uv run pytest                                    # run tests
 uv run pytest --cov=app --cov-report=term-missing  # tests + coverage
-uv run flask --app app run --debug               # dev server
+uv run flask --app app.main:create_app run --debug  # dev server
 ```
 
 ### 5.3 Mobile Commands

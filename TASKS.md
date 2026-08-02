@@ -109,5 +109,4 @@ Tracks implementation tasks by milestone, per PRD.md §9 and CLAUDE.md's Impleme
 
 ## Open Questions Blocking Future Work
 
-- Exact React Native tooling choice: Expo vs. bare workflow (leaning Expo per CLAUDE.md key dependencies — confirm before M1 mobile work starts)
-- Hosting provider for M5 cloud deployment — undecided
+- Hosting provider for M5 cloud deployment — undecided (weighing homelab self-host vs. AWS EC2); not blocking, M5 is not current milestone

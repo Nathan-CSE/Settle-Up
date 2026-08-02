@@ -262,10 +262,10 @@ Response (nets don't reconcile, resolved — request sent `resolve_discrepancy: 
 - **Transparency:** every computed settlement (success or error) includes a full breakdown of the calculation, not just the final answer (FR-012)
 - **Discrepancy resolution strategy:** even split across all players, not proportional to buy-in size. Considered proportional (weighted by buy-in) for groups with wide buy-in variance (rebuys pushing one player's stake well above another's), since it scales the burden with stake and reduces how often the floor guard excludes a low-stake player — but for the target group's fairly uniform ~$10 buy-ins the difference is pennies, and proportional forces answering "weighted by buy-in or by cash-out?" for no real benefit here. Implemented as a swappable strategy (`DiscrepancyStrategy` enum in `settle.py`) so proportional can be added later without changing the request/response contract (FR-021)
 - **Discrepancy resolution opt-in:** never automatic — the standard reconciliation error (FR-008) is always the default response; a client must explicitly resend with `resolve_discrepancy: true` to get a resolved settlement. This preserves the reconciliation check's core purpose (surfacing likely data-entry mistakes) while still offering a one-tap fix for small, genuine discrepancies (FR-020/021)
+- **React Native tooling:** Expo, not bare workflow — confirmed for MVP mobile development
 
 ### 10.2 Still Open
-- Exact React Native tooling choice (Expo vs. bare workflow)
-- Hosting provider for the eventual M5 cloud deployment
+- Hosting provider for the eventual M5 cloud deployment — weighing self-hosting on a homelab server vs. AWS EC2; not needed until M5, no action required at M1
 
 ## 11. Success Criteria
 

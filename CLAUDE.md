@@ -35,6 +35,16 @@ Full detail lives in [PRD.md](PRD.md) — treat it as the source of truth for re
 - Add newly discovered tasks to TASKS.md.
 - Use SCRATCHPAD.md as a scratchpad to outline plans.
 
+## Git Workflow
+
+- Never commit directly to `main`. Every task — feature, fix, refactor — gets its own short-lived branch, even for solo work. This is what makes review possible before anything lands.
+- Branch naming: `<category>/<short-description>`, kebab-case. Categories: `feature/`, `fix/`, `chore/`, `refactor/`, `docs/`. E.g. `feature/settlement-algorithm`, `fix/rounding-bug`.
+- Commit incrementally within that branch as you go. Commits don't need to be squashed or polished — only the eventual PR needs to read cleanly as a whole.
+- When a task is ready for review, open a PR (`gh pr create`) instead of merging directly. Use a draft PR if the work is still in progress but you want visibility into it.
+- Nathan reviews via VS Code's GitHub Pull Requests extension (inline comments) and/or files the review into Obsidian via the `pr-to-obsidian` skill. Wait for explicit approval before merging — never merge your own PR unless told to.
+- Delete the branch after merge — no exceptions, this is what keeps the branch list from accumulating.
+- Exception: trivial doc-only edits (README typo, comment wording) can go straight to `main` if Nathan explicitly says so — don't assume this on your own.
+
 ## Core Architecture
 
 ### Repository Structure (MVP)

@@ -1,7 +1,5 @@
 # Settle-Up
 
-A mobile app that resolves who-owes-who at the end of a game night. Enter each player's buy-in and final balance; a Flask backend computes the minimum set of transactions needed to settle all debts, and every result — success or error — shows its underlying math.
-
 ![Hero](docs/images/hero.jpeg)
 
 ## Overview

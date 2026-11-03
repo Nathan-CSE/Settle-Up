@@ -51,16 +51,16 @@ Tracks implementation tasks by milestone, per PRD.md §9 and CLAUDE.md's Impleme
 - [x] Discrepancy resolution: resolvable flag (true/false), even-split success + breakdown fields, floor-guard exclusion, unresolvable fallback, unsupported-strategy defensive branch — all covered
 
 ### Mobile app
-- [ ] Expo project scaffold under `mobile/` (`package.json`, Expo config)
-- [ ] Add-player screen: name, buy-in, final balance entry (numeric keypad, low-friction per NFR-001)
-- [ ] Client-side validation: reject negative buy-in, reject duplicate names before hitting the API
-- [ ] API client module (`mobile/src/api/`) calling `POST /api/settlement`
-- [ ] Results screen: transaction list + reconciliation summary (error case) shown by default
-- [ ] Collapsed/expandable "show calculation" section for the full breakdown (FR-012, NFR-004)
-- [ ] Actionable error messaging surfaced in UI for each validation failure type (NFR-003)
-- [ ] Local save/restore of last game via AsyncStorage
-- [ ] Dark mode support (NFR-002)
-- [ ] Manual/exploratory pass through golden path + edge cases (no formal mobile coverage target for MVP)
+- [x] Expo project scaffold under `mobile/` (`package.json`, Expo config) — Expo ~57.0.9 (current at scaffold time, not the stale ~51.0.0 doc pin)
+- [x] Add-player screen: name, buy-in, final balance entry (numeric keypad, low-friction per NFR-001) — `PlayersScreen.js`
+- [x] Client-side validation: reject negative buy-in, reject duplicate names before hitting the API — `src/domain/validation.js`
+- [x] API client module (`mobile/src/api/`) calling `POST /api/settlement` — `src/api/settlement.js` + `src/api/config.js` (LAN host auto-detection via expo-constants)
+- [x] Results screen: transaction list + reconciliation summary (error case) shown by default — `ResultsScreen.js`
+- [x] Collapsed/expandable "show calculation" section for the full breakdown (FR-012, NFR-004) — `src/components/BreakdownSection.js`
+- [x] Actionable error messaging surfaced in UI for each validation failure type (NFR-003)
+- [x] Local save/restore of last game via AsyncStorage — `src/storage/gameStorage.js` (draft-recovery of in-progress game)
+- [x] Dark mode support (NFR-002) — `src/theme.js`, `useColorScheme`-driven, `app.json` set to `userInterfaceStyle: automatic`
+- [ ] Manual/exploratory pass through golden path + edge cases (no formal mobile coverage target for MVP) — bundler compiles/mounts cleanly (Metro: "Web Bundled ... Running application main", no errors) and backend round-trip verified via curl; full in-browser interaction pass blocked in this sandbox (Chrome scripting requires Accessibility/Automation permissions not granted here) — still needs a real manual pass (`cd mobile && npx expo start --web` or Expo Go) before calling M1 mobile done
 
 ---
 

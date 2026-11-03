@@ -35,6 +35,16 @@ Full detail lives in [PRD.md](PRD.md) — treat it as the source of truth for re
 - Add newly discovered tasks to TASKS.md.
 - Use SCRATCHPAD.md as a scratchpad to outline plans.
 
+## Git Workflow
+
+- Never commit directly to `main`. Every task — feature, fix, refactor — gets its own short-lived branch, even for solo work. This is what makes review possible before anything lands.
+- Branch naming: `<category>/<short-description>`, kebab-case. Categories: `feature/`, `fix/`, `chore/`, `refactor/`, `docs/`. E.g. `feature/settlement-algorithm`, `fix/rounding-bug`.
+- Commit incrementally within that branch as you go. Commits don't need to be squashed or polished — only the eventual PR needs to read cleanly as a whole.
+- When a task is ready for review, open a PR (`gh pr create`) instead of merging directly. Use a draft PR if the work is still in progress but you want visibility into it.
+- Nathan reviews via VS Code's GitHub Pull Requests extension (inline comments) and/or files the review into Obsidian via the `pr-to-obsidian` skill. Wait for explicit approval before merging — never merge your own PR unless told to.
+- Delete the branch after merge — no exceptions, this is what keeps the branch list from accumulating.
+- Exception: trivial doc-only edits (README typo, comment wording) can go straight to `main` if Nathan explicitly says so — don't assume this on your own.
+
 ## Core Architecture
 
 ### Repository Structure (MVP)
@@ -96,24 +106,29 @@ Backend (`backend/pyproject.toml`, managed with uv):
 ```toml
 [dependencies]
 flask = ">=3.0.0"
+flask-cors = ">=6.0.0"
 pydantic = ">=2.0.0"
 
 [dev-dependencies]
 pytest = ">=7.0.0"
 pytest-cov = ">=4.0.0"
 ```
+`flask-cors` was added when mobile M1 work started, purely to let Expo web (used for local browser testing in dev/sandboxed environments without a simulator) call `localhost` across ports. It has no bearing on native mobile usage, where CORS doesn't apply.
 
 Mobile (`mobile/package.json`, Expo):
 ```json
 {
   "dependencies": {
-    "expo": "~51.0.0",
-    "react": "18.x",
-    "react-native": "0.74.x",
-    "@react-native-async-storage/async-storage": "^1.23.0"
+    "expo": "~57.0.9",
+    "expo-constants": "~18.x",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.x",
+    "react-native": "0.86.x",
+    "@react-native-async-storage/async-storage": "^2.2.0"
   }
 }
 ```
+Versions above are current as of M1 mobile scaffolding (Aug 2026) — the `~51.0.0`/React 18/RN 0.74 pins once documented here predate scaffolding and are obsolete; `npx create-expo-app` pulls whatever's current on npm, and forcing an old pinned SDK isn't worth it for a solo project. Keep this section in sync whenever deps are bumped.
 
 ## Core API Design
 

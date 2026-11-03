@@ -5,6 +5,7 @@ description = "Settle-Up Flask API: computes minimal settlement transactions for
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.0.0",
+    "flask-cors>=6.0.5",
     "pydantic>=2.0.0",
 ]
 

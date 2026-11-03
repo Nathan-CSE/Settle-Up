@@ -1,6 +1,7 @@
 .claude/worktrees/
 .claude/settings.json
 .claude/settings.local.json
+.DS_Store
 
 # Python / backend
 backend/.venv/
